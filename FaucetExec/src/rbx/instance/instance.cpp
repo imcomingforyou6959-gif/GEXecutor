@@ -20,17 +20,24 @@ std::string rbxstring(std::uintptr_t address)
 	return str;
 }
 
+// ------------------------------------------------------------
+// Bytecode functions are BROKEN – the old msbytecode/lsbytecode
+// offsets no longer exist. You must find the new bytecode
+// pointer offset(s) and rewrite these functions accordingly.
+// ------------------------------------------------------------
+/*
 void rbx::instance_t::SetBytecode(std::vector<char> bytes, int bytecode_size)
 {
     auto old_bytecode_ptr = memory->read<long long>(this->address + offsets::script::msbytecode);
 
     auto protected_str_ptr = (long long)memory->allocate_virtual_memory(bytecode_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    /* Allocated nice */
+    // Allocated nice
 
     memory->write_memory(protected_str_ptr, bytes.data(), bytes.size());
     memory->write<unsigned long long>(old_bytecode_ptr + 0x10, protected_str_ptr);
     memory->write<unsigned long>(old_bytecode_ptr + 0x20, bytecode_size);
 }
+*/
 
 template <typename T>
 void mem_read(DWORD64 address, T* buffer, SIZE_T size = 0) {
@@ -48,6 +55,7 @@ std::vector<char> read_bytes(DWORD64 address, SIZE_T size = 500) {
     return buffer;
 }
 
+/*
 void rbx::instance_t::GetBytecode(std::vector<char>& bytecode, size_t& bytecode_size) {
     DWORD64 bytecode_pointer;
     auto meow = this->getclassname();
@@ -66,7 +74,14 @@ void rbx::instance_t::GetBytecode(std::vector<char>& bytecode, size_t& bytecode_
         mem_read(bytecode_pointer + 0x20, &bytecode_size);
     };
 }
+*/
 
+// ------------------------------------------------------------
+// Module bypass is BROKEN – moduleflags & iscore no longer exist.
+// The Script namespace now only contains RequireBypass (0x0).
+// You must find a completely new bypass approach.
+// ------------------------------------------------------------
+/*
 void rbx::instance_t::modulebypassi() {
     uint64_t set = 0x100000000;
     uint64_t core = 0x1;
@@ -74,6 +89,7 @@ void rbx::instance_t::modulebypassi() {
     memory->write(address + offsets::script::moduleflags, set);
     memory->write(address + offsets::script::iscore, core);
 }
+*/
 
 std::vector<rbx::instance_t> rbx::instance_t::getchildren()
 {
@@ -82,12 +98,12 @@ std::vector<rbx::instance_t> rbx::instance_t::getchildren()
     if (!this->address)
         return container;
 
-    auto start = memory->read<std::uint64_t>(this->address + offsets::instance::children);
+    auto start = memory->read<std::uint64_t>(this->address + offsets::instance::children);   // 0x78
 
     if (!start)
         return container;
 
-    auto end = memory->read<std::uint64_t>(start + offsets::instance::childsize);
+    auto end = memory->read<std::uint64_t>(start + offsets::instance::childsize);            // 0x8
 
     for (auto instances = memory->read<std::uint64_t>(start); instances != end; instances += 16) {
         rbx::instance_t aee = memory->read<rbx::instance_t>(instances);
@@ -116,12 +132,12 @@ rbx::instance_t rbx::instance_t::findfirstchild(std::string name)
 
 rbx::instance_t rbx::instance_t::ObjectValue()
 {
-    rbx::instance_t ret = memory->read<rbx::instance_t>(this->address + offsets::instance::instancevalue::value);
+    rbx::instance_t ret = memory->read<rbx::instance_t>(this->address + offsets::instance::instancevalue::value);   // 0xD0
     return ret;
 }
 
 void rbx::instance_t::SetBoolValue(bool rizz) {
-    memory->write<bool>(this->address + rbx::offsets::instance::instancevalue::value, rizz);
+    memory->write<bool>(this->address + rbx::offsets::instance::instancevalue::value, rizz);                     // 0xD0
 }
 
 rbx::instance_t rbx::instance_t::waitfor_child(std::string name, int timeout) {
@@ -130,11 +146,11 @@ rbx::instance_t rbx::instance_t::waitfor_child(std::string name, int timeout) {
 
     timeout *= 10;  // Converting timeout to intervals of 100 ms
     for (int times = 0; times < timeout; ++times) {
-        auto child_list = memory->read<DWORD64>(this->address + offsets::instance::children);
+        auto child_list = memory->read<DWORD64>(this->address + offsets::instance::children);   // 0x78
         if (!child_list) continue; // Skip if child_list is invalid
 
         auto child_top = memory->read<DWORD64>(child_list);
-        auto child_end = memory->read<DWORD64>(child_list + 0x8);
+        auto child_end = memory->read<DWORD64>(child_list + 0x8);                               // childsize = 0x8
 
         for (DWORD64 child_addy = child_top; child_addy < child_end; child_addy += 0x10) {
             rbx::instance_t child = memory->read<rbx::instance_t>(child_addy);
@@ -151,7 +167,7 @@ rbx::instance_t rbx::instance_t::waitfor_child(std::string name, int timeout) {
 
 std::string rbx::instance_t::getname()
 {
-    const auto ptr = memory->read<std::uint64_t>(this->address + rbx::offsets::instance::name);
+    const auto ptr = memory->read<std::uint64_t>(this->address + rbx::offsets::instance::name);   // 0xB0
 
     if (ptr)
         return rbxstring(ptr);
@@ -161,8 +177,8 @@ std::string rbx::instance_t::getname()
 
 std::string rbx::instance_t::getclassname()
 {
-    auto ClassDescriptor = memory->read<uint64_t>(address + rbx::offsets::instance::cdescriptor);
-    auto ClassName = memory->read<uint64_t>(ClassDescriptor + rbx::offsets::instance::cname);
+    auto ClassDescriptor = memory->read<uint64_t>(address + rbx::offsets::instance::cdescriptor);   // 0x18
+    auto ClassName = memory->read<uint64_t>(ClassDescriptor + rbx::offsets::instance::cname);        // 0x8
 
     if (ClassName)
         return rbxstring(ClassName);
