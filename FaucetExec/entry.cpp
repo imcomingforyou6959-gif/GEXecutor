@@ -142,9 +142,13 @@ int main()
     auto renderview = booty::GetRenderView();
     std::chex(renderview);
 
-    // New chain: FakeDataModel -> RealDataModel (0x1D0)
-auto fakeDataModel = memory->read(renderview + 0x118); // Or get FakeDataModel from the updated VisualEngine pointer
-auto dmaddy = memory->read(fakeDataModel + 0x1D0);    // The new offset for RealDataModel
+    // --------------------------------------------
+    // Updated DataModel chain (version d1589b6685d04577)
+    // VisualEngine + 0x1D0 -> FakeDataModel
+    // FakeDataModel + 0x1D0 -> RealDataModel
+    // --------------------------------------------
+    auto fakeDataModel = memory->read<std::uintptr_t>(renderview + 0x1D0);
+    auto dmaddy = memory->read<std::uintptr_t>(fakeDataModel + 0x1D0);
 
     storage::datamodel = static_cast<rbx::instance_t>(dmaddy);
 
